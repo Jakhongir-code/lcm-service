@@ -1,54 +1,63 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using System;
+using System.Numerics;
 
 var builder = WebApplication.CreateBuilder(args);
 var app = builder.Build();
+
+// Checks if the string represents a natural number (only digits, > 0)
 bool IsNaturalNumber(string value)
 {
-    if (string.IsNullOrWhiteSpace(value))
+    if (string.IsNullOrEmpty(value))
         return false;
-    
-    if (!long.TryParse(value.Trim(), out long number))
-        return false;
-    
-    return number > 0 && value.Trim() == number.ToString();
+
+    foreach (char c in value)
+    {
+        if (!char.IsDigit(c))
+            return false;
+    }
+
+    // Exclude "0", "00", etc.
+    return value.TrimStart('0').Length > 0;
 }
 
-long GCD(long a, long b)
+BigInteger GCD(BigInteger a, BigInteger b)
 {
     while (b != 0)
     {
-        long temp = b;
+        var temp = b;
         b = a % b;
         a = temp;
     }
     return a;
 }
 
-long LCM(long x, long y)
+BigInteger LCM(BigInteger x, BigInteger y)
 {
-    return Math.Abs(x * y) / GCD(x, y);
+    // Overflow-safe formula
+    return (x / GCD(x, y)) * y;
 }
 
+// Catch-all route to allow any path ending with email
 app.MapGet("/{*path}", async (HttpContext context) =>
 {
-    string xParam = context.Request.Query["x"].ToString();
-    string yParam = context.Request.Query["y"].ToString();
-    
+    var xParam = context.Request.Query["x"].ToString();
+    var yParam = context.Request.Query["y"].ToString();
+
+    context.Response.ContentType = "text/plain";
+
     if (!IsNaturalNumber(xParam) || !IsNaturalNumber(yParam))
     {
-        context.Response.ContentType = "text/plain";
         await context.Response.WriteAsync("NaN");
         return;
     }
-    
-    long x = long.Parse(xParam);
-    long y = long.Parse(yParam);
-    
-    long result = LCM(x, y);
-    
-    context.Response.ContentType = "text/plain";
+
+    BigInteger x = BigInteger.Parse(xParam);
+    BigInteger y = BigInteger.Parse(yParam);
+
+    var result = LCM(x, y);
+
     await context.Response.WriteAsync(result.ToString());
 });
 
